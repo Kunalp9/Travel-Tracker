@@ -34,10 +34,38 @@ app.get("/", async (req, res) => {
 
 app.post('/add', async (req, res)=>{
   let input = req.body.country;
-  let inputData = await db.query(`SELECT country_code FROM countries WHERE country_name = '${input}' `);
-  const countryCode = inputData.rows[0].country_code;
-  db.query('INSERT INTO visited_countries (country_code) VALUES ($1)', [countryCode]);
-  res.redirect('/');
+  try {
+    const result = await db.query(
+      "SELECT country_code FROM countries WHERE country_name = $1",
+      [input]
+    );
+
+    const data = result.rows[0];
+    const countryCode = data.country_code;
+    try {
+      await db.query(
+        "INSERT INTO visited_countries (country_code) VALUES ($1)",
+        [countryCode]
+      );
+      res.redirect("/");
+    } catch (err) {
+      console.log(err);
+      const countries = await checkVisisted();
+      res.render("index.ejs", {
+        countries: countries,
+        total: countries.length,
+        error: "Country has already been added, try again.",
+      });
+    }
+  } catch (err) {
+    console.log(err);
+    const countries = await checkVisisted();
+    res.render("index.ejs", {
+      countries: countries,
+      total: countries.length,
+      error: "Country name does not exist, try again.",
+    });
+  }
 })
 
 
