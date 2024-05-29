@@ -1,39 +1,42 @@
 import express from "express";
 import bodyParser from "body-parser";
-import pg from "pg"
+import pg from "pg";
 
 const app = express();
 const port = 3000;
 
+const db = new pg.Client({
+  user: "postgres",
+  host: "localhost",
+  database: "world",
+  password: "123456",
+  port: 5432,
+});
+db.connect();
+
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-const db = new pg.Client({
-  user: 'postgres',
-  host: 'localhost',
-  database: 'world',
-  password: 'Kun.Postgres@9',
-  port: 5432,
-})
+async function checkVisisted() {
+  const result = await db.query("SELECT country_code FROM visited_countries");
 
-db.connect();
-
-app.get("/", async (req, res) => {
-  //Write your code here.
-  const data = await db.query('SELECT country_code FROM visited_countries');
   let countries = [];
-  data.rows.forEach((country) => {
+  result.rows.forEach((country) => {
     countries.push(country.country_code);
   });
-  res.render('index.ejs', {
-    countries: countries,
-    total: countries.length
-  });
-  
+  return countries;
+}
+
+// GET home page
+app.get("/", async (req, res) => {
+  const countries = await checkVisisted();
+  res.render("index.ejs", { countries: countries, total: countries.length });
 });
 
-app.post('/add', async (req, res)=>{
-  let input = req.body.country;
+//INSERT new country
+app.post("/add", async (req, res) => {
+  const input = req.body["country"];
+
   try {
     const result = await db.query(
       "SELECT country_code FROM countries WHERE country_name = $1",
@@ -66,8 +69,7 @@ app.post('/add', async (req, res)=>{
       error: "Country name does not exist, try again.",
     });
   }
-})
-
+});
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
